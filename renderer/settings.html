@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置 - Yuns桌面助手</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings-app">
+    <!-- 侧边栏导航 -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="app-logo">
+          <span class="logo-text">设置</span>
+        </div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="api">
+          <span class="nav-icon">🔌</span>
+          <span class="nav-text">API 配置</span>
+        </button>
+        <button class="nav-item" data-tab="mcp">
+          <span class="nav-icon">🛠️</span>
+          <span class="nav-text">MCP 工具</span>
+        </button>
+        <button class="nav-item" data-tab="proxy">
+          <span class="nav-icon">🔄</span>
+          <span class="nav-text">API 中转站</span>
+        </button>
+        <button class="nav-item" data-tab="general">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-text">通用设置</span>
+        </button>
+        <button class="nav-item" data-tab="appearance">
+          <span class="nav-icon">🎨</span>
+          <span class="nav-text">外观设置</span>
+        </button>
+        <button class="nav-item" data-tab="about">
+          <span class="nav-icon">ℹ️</span>
+          <span class="nav-text">关于</span>
+        </button>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <button id="close-btn" class="sidebar-btn">
+          <span>✖️</span>
+          <span>关闭</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="content-area">
+      <!-- API 配置页面 -->
+      <div id="api-tab" class="tab-content active">
+        <div class="tab-header">
+          <h1>API 配置管理</h1>
+          <p class="tab-description">管理您的 AI 模型 API 配置，支持多个提供商</p>
+        </div>
+        
+        <div class="tab-body">
+          <div class="action-bar">
+            <button id="add-config-btn" class="primary-btn">
+              <span>➕</span>
+              <span>添加新配置</span>
+            </button>
+          </div>
+          
+          <div id="configs-container" class="configs-list"></div>
+        </div>
+      </div>
+
+      <!-- MCP 工具配置页面 -->
+      <div id="mcp-tab" class="tab-content">
+        <div class="tab-header">
+          <h1>MCP 工具配置</h1>
+          <p class="tab-description">连接 MCP 服务器，让 AI 获得更强大的能力</p>
+        </div>
+        
+        <div class="tab-body">
+          <div class="settings-section">
+            <h3>MCP 功能</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>启用 MCP 工具调用</label>
+                <p class="setting-desc">开启后，AI 可以调用 MCP 服务器提供的工具来完成任务</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="mcp-enabled">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="action-bar">
+            <button id="add-mcp-server-btn" class="primary-btn">
+              <span>➕</span>
+              <span>添加 MCP 服务器</span>
+            </button>
+          </div>
+          
+          <div id="mcp-servers-container" class="configs-list"></div>
+          
+          <div class="mcp-info-section">
+            <h3>💡 什么是 MCP？</h3>
+            <p>MCP（Model Context Protocol）是一种协议，允许 AI 模型与外部工具和服务进行交互。</p>
+            
+            <h4>通过 MCP，AI 可以：</h4>
+            <ul>
+              <li>📁 读取和写入本地文件</li>
+              <li>💻 执行终端命令</li>
+              <li>🌐 搜索网络信息</li>
+              <li>🗄️ 查询数据库</li>
+              <li>🔧 调用自定义 API</li>
+            </ul>
+            
+            <h4>常用 MCP 服务器（点击快速添加）：</h4>
+            <div class="mcp-presets">
+              <button class="preset-btn" data-preset="filesystem">📁 文件系统</button>
+              <button class="preset-btn" data-preset="memory">🧠 记忆存储</button>
+              <button class="preset-btn" data-preset="puppeteer">🌐 浏览器自动化</button>
+            </div>
+            <p class="mcp-hint">💡 这些是官方验证过的 MCP 服务器，首次连接需要下载（约30秒），请耐心等待~</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gemini API 中转站页面 -->
+      <div id="proxy-tab" class="tab-content">
+        <div class="tab-header">
+          <h1>Gemini API 中转站</h1>
+          <p class="tab-description">多 Key 自动切换，免费额度用完自动换下一个，兼容 OpenAI API 格式</p>
+        </div>
+        
+        <div class="tab-body">
+          <div class="settings-section">
+            <h3>中转站服务</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>启用中转站</label>
+                <p class="setting-desc">开启后，桌宠的 Gemini 对话会使用多 Key 轮换，其他软件也可接入</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="proxy-enabled">
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>自动同步 API 配置</label>
+                <p class="setting-desc">自动从"API 配置"中获取 Gemini Key，无需重复添加</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="auto-sync-configs" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>服务端口</label>
+                <p class="setting-desc">中转站监听的端口号（供其他软件接入）</p>
+              </div>
+              <input type="number" id="proxy-port" class="setting-input" value="3001" min="1024" max="65535">
+            </div>
+            
+            <div id="proxy-status" class="proxy-status">
+              <span class="status-dot"></span>
+              <span class="status-text">未启动</span>
+            </div>
+          </div>
+          
+          <!-- Gemini Keys 列表 -->
+          <div class="settings-section">
+            <h3>🔶 Gemini API Keys</h3>
+            <p class="section-desc">所有可用的 Gemini Key（来自 API 配置 + 手动添加）</p>
+            <div id="all-gemini-keys-list" class="keys-list"></div>
+            
+            <h4 style="margin-top: 20px; color: #FF9800;">➕ 添加额外的 Key</h4>
+            <p class="section-desc">除了 API 配置中的 Key，你还可以在这里添加更多 Key</p>
+            <div class="key-input-row">
+              <input type="text" id="gemini-key-input" placeholder="AIzaSy..." class="key-input">
+              <button id="add-gemini-key" class="primary-btn small">➕ 添加</button>
+            </div>
+            <div id="manual-gemini-keys-list" class="keys-list"></div>
+          </div>
+          
+          <!-- 使用说明 -->
+          <div class="proxy-info-section">
+            <h3>📖 使用说明</h3>
+            
+            <div class="info-box highlight">
+              <h4>🐕 桌宠自动使用</h4>
+              <p>启用中转站后，桌宠的 AI 助手会自动使用多 Key 轮换，一个 Key 的免费额度用完会自动切换到下一个！</p>
+            </div>
+            
+            <div class="info-box">
+              <h4>📍 其他软件接入</h4>
+              <code id="proxy-url">http://localhost:3001/v1</code>
+              <button class="copy-btn" data-copy="proxy-url">📋 复制</button>
+              <p style="margin-top: 8px; font-size: 12px; color: #999;">API Key 随便填，模型可填 gpt-4o、gpt-3.5-turbo 等</p>
+            </div>
+            
+            <div class="info-box">
+              <h4>📋 模型映射</h4>
+              <table class="model-table">
+                <tr><th>您填的模型名</th><th>实际调用</th></tr>
+                <tr><td>gpt-3.5-turbo</td><td>Gemini 1.5 Flash</td></tr>
+                <tr><td>gpt-4</td><td>Gemini 1.5 Pro</td></tr>
+                <tr><td>gpt-4o</td><td>Gemini 2.0 Flash</td></tr>
+              </table>
+            </div>
+            
+            <div class="info-box">
+              <h4>⚡ 特性</h4>
+              <ul>
+                <li>✅ 免费额度用完自动切换下一个 Key</li>
+                <li>✅ 速率限制自动冷却重试</li>
+                <li>✅ 无效 Key 自动禁用</li>
+                <li>✅ 支持流式响应（SSE）</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 通用设置页面 -->
+      <div id="general-tab" class="tab-content">
+        <div class="tab-header">
+          <h1>通用设置</h1>
+          <p class="tab-description">配置应用的基本行为和功能</p>
+        </div>
+        
+        <div class="tab-body">
+          <div class="settings-section">
+            <h3>窗口设置</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>宠物窗口始终置顶</label>
+                <p class="setting-desc">开启后，桌面宠物将显示在所有窗口之上</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="always-on-top">
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>启动时显示对话窗口</label>
+                <p class="setting-desc">应用启动时自动打开 AI 对话窗口</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="auto-open-chat">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>对话设置</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>保存对话历史</label>
+                <p class="setting-desc">自动保存对话记录，下次启动时恢复</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="save-history" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>Markdown 保存路径</label>
+                <p class="setting-desc">对话导出为 Markdown 文件的保存位置</p>
+              </div>
+              <div class="path-input">
+                <input type="text" id="markdown-path" value="" placeholder="点击选择保存路径" readonly>
+                <button class="secondary-btn" id="change-path-btn">选择</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 外观设置页面 -->
+      <div id="appearance-tab" class="tab-content">
+        <div class="tab-header">
+          <h1>外观设置</h1>
+          <p class="tab-description">自定义应用的外观和主题</p>
+        </div>
+        
+        <div class="tab-body">
+          <div class="settings-section">
+            <h3>桌面宠物</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>宠物图片</label>
+                <p class="setting-desc">当前使用：柴犬照片（可拖拽图片到宠物上更换）</p>
+              </div>
+              <button class="secondary-btn" id="reset-pet-image">重置为默认</button>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>宠物大小</label>
+                <p class="setting-desc">调整桌面宠物的显示大小</p>
+              </div>
+              <select id="pet-size" class="setting-select">
+                <option value="small">小（150x150）</option>
+                <option value="medium" selected>中（200x200）</option>
+                <option value="large">大（250x250）</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>主题模式</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>夜间模式</label>
+                <p class="setting-desc">深色主题，保护眼睛，夜晚使用更舒适</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="dark-mode-toggle">
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="theme-preview" id="theme-preview">
+              <div class="preview-card light">
+                <span class="preview-icon">☀️</span>
+                <span class="preview-label">日间模式</span>
+              </div>
+              <div class="preview-card dark">
+                <span class="preview-icon">🌙</span>
+                <span class="preview-label">夜间模式</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <h3>对话界面</h3>
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>主题色彩</label>
+                <p class="setting-desc">选择对话窗口的强调色</p>
+              </div>
+              <select id="theme-select" class="setting-select">
+                <option value="shiba" selected>🐕 柴犬橙</option>
+                <option value="blue">💙 天空蓝</option>
+                <option value="purple">💜 优雅紫</option>
+                <option value="green">💚 清新绿</option>
+              </select>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>字体大小</label>
+                <p class="setting-desc">调整对话内容的字体大小</p>
+              </div>
+              <select id="font-size" class="setting-select">
+                <option value="small">小</option>
+                <option value="medium" selected>中</option>
+                <option value="large">大</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 关于页面 -->
+      <div id="about-tab" class="tab-content">
+        <div class="tab-header">
+          <h1>关于 Yuns桌面助手</h1>
+          <p class="tab-description">应用信息和版本详情</p>
+        </div>
+        
+        <div class="tab-body">
+          <div class="about-content">
+            <div class="about-logo">
+              <img src="../assets/shiba.jpg" alt="Yuns" class="about-avatar">
+              <h2>Yuns桌面助手</h2>
+              <p class="version">版本 2.0.0</p>
+            </div>
+            
+            <div class="about-info">
+              <div class="info-item">
+                <span class="info-label">作者：</span>
+                <span class="info-value">齐匀升</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">联系方式：</span>
+                <span class="info-value">2644961476@qq.com</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">描述：</span>
+                <span class="info-value">一个智能的桌面 AI 助手，支持多模型对话和屏幕视觉分析</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">支持的 API：</span>
+                <span class="info-value">DeepSeek, Gemini, OpenAI 兼容接口</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">技术栈：</span>
+                <span class="info-value">Electron, Node.js, JavaScript</span>
+              </div>
+            </div>
+
+            <div class="about-features">
+              <h3>主要功能</h3>
+              <ul>
+                <li>🐕 桌面悬浮宠物，随时陪伴</li>
+                <li>💬 多模型 AI 对话，智能应答</li>
+                <li>📸 屏幕截图分析，视觉理解</li>
+                <li>🔌 多 API 配置，灵活切换</li>
+                <li>💾 对话导出 Markdown，永久保存</li>
+                <li>🎨 美观界面，流畅交互</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 添加/编辑配置模态框 -->
+  <div id="config-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">添加配置</h2>
+        <button class="close-modal" id="close-modal-btn">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label>配置名称 *</label>
+          <input type="text" id="config-name" placeholder="例如: DeepSeek 主账号" required>
+        </div>
+
+        <div class="form-group">
+          <label>提供商类型 *</label>
+          <select id="provider-type" required>
+            <option value="">请选择...</option>
+            <option value="deepseek">🔷 DeepSeek</option>
+            <option value="gemini">🔶 Gemini</option>
+            <option value="openai">🤖 OpenAI兼容</option>
+            <option value="custom">⚙️ 自定义</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>API 地址 *</label>
+          <input type="text" id="api-url" placeholder="https://api.example.com/v1/chat/completions" required>
+        </div>
+
+        <div class="form-group">
+          <label>API 密钥 *</label>
+          <div class="password-input">
+            <input type="password" id="api-key" placeholder="sk-... 或 AIza..." required>
+            <button class="toggle-password" type="button">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>模型 *</label>
+          <select id="model-select" required>
+            <option value="">请先选择提供商类型</option>
+          </select>
+          <div class="model-info" id="model-info"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="enabled-checkbox" checked>
+            <span>启用此配置</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="test-config-btn" class="secondary-btn">🔍 测试连接</button>
+        <button id="save-config-btn" class="primary-btn">💾 保存配置</button>
+      </div>
+
+      <div id="test-result" class="test-result hidden"></div>
+    </div>
+  </div>
+
+  <!-- MCP 服务器配置模态框 -->
+  <div id="mcp-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content mcp-modal">
+      <div class="modal-header">
+        <h2 id="mcp-modal-title">🛠️ 添加 MCP 服务器</h2>
+        <button class="close-modal" id="close-mcp-modal-btn">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label><span class="label-icon">📛</span> 服务器名称 <span class="required">*</span></label>
+          <input type="text" id="mcp-server-name" placeholder="例如: 文件系统、记忆存储" required>
+        </div>
+
+        <div class="form-group">
+          <label><span class="label-icon">⚡</span> 启动命令 <span class="required">*</span></label>
+          <input type="text" id="mcp-command" placeholder="npx" required>
+          <p class="form-hint">💡 通常填 <code>npx</code> 即可</p>
+        </div>
+
+        <div class="form-group">
+          <label><span class="label-icon">📋</span> 命令参数</label>
+          <input type="text" id="mcp-args" placeholder="-y @modelcontextprotocol/server-filesystem C:/">
+          <p class="form-hint">💡 包名和启动参数，用空格分隔</p>
+        </div>
+
+        <div class="form-group">
+          <label><span class="label-icon">🔧</span> 环境变量 <span class="optional">(可选)</span></label>
+          <textarea id="mcp-env" rows="2" placeholder='{"API_KEY": "xxx"}'></textarea>
+          <p class="form-hint">💡 JSON 格式，某些 MCP 服务器需要配置 API Key</p>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="mcp-enabled-checkbox">
+            <span class="checkmark"></span>
+            <span>保存后立即启用并连接</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="mcp-test-result" class="test-result-area hidden"></div>
+
+      <div class="modal-footer">
+        <button id="test-mcp-btn" class="secondary-btn">🔍 测试连接</button>
+        <button id="save-mcp-btn" class="primary-btn">💾 保存服务器</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 状态提示 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

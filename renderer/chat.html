@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yuns对话助手</title>
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部工具栏 -->
+    <div id="toolbar">
+      <div class="toolbar-left">
+        <div class="config-selector">
+          <select id="config-select">
+            <option value="">加载中...</option>
+          </select>
+          <span id="config-info" class="config-badge">加载中...</span>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <button id="settings-btn" class="toolbar-icon-btn" title="设置">⚙️</button>
+      </div>
+    </div>
+
+    <!-- 对话历史区域 -->
+    <div id="chat-container">
+      <div id="messages"></div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div id="input-container">
+      <div class="input-wrapper">
+        <textarea 
+          id="user-input" 
+          placeholder="输入问题... (Ctrl+Enter 发送)"
+          rows="1"
+        ></textarea>
+        <div class="input-actions">
+          <button id="screenshot-btn" class="input-icon-btn" title="截图分析">📸</button>
+          <button id="save-btn" class="input-icon-btn" title="保存对话">💾</button>
+        </div>
+      </div>
+      <div class="send-area">
+        <button id="send-btn" class="send-btn">
+          <span>发送</span>
+          <span class="send-shortcut">Ctrl+↵</span>
+        </button>
+        <button id="stop-btn" class="stop-btn hidden">
+          <span>⏹️ 停止生成</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 状态提示 -->
+  <div id="status" class="hidden"></div>
+
+  <!-- 编辑消息模态框 -->
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>✏️ 编辑消息</h3>
+        <button class="modal-close" id="edit-modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="edit-input" placeholder="编辑您的消息..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel" id="edit-cancel">取消</button>
+        <button class="modal-btn primary" id="edit-confirm">重新发送</button>
+      </div>
+    </div>
+  </div>
+
+<!-- 先加载友好消息模块 -->
+<script src="friendly-messages.js"></script>
+<!-- 再加载主逻辑 -->
+<script src="chat.js"></script>
+</body>
+</html>
