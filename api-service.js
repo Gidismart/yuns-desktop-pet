@@ -66,23 +66,70 @@ class APIService {
     }
 
     try {
-      if (provider === 'deepseek' || provider === 'openai' || provider === 'custom') {
-        return await this.testOpenAICompatible(apiUrl, apiKey, selectedModel);
-      } else if (provider === 'gemini') {
+      // Gemini 使用特殊的 API 格式
+      if (provider === 'gemini') {
         return await this.testGemini(apiUrl, apiKey, selectedModel);
       }
       
-      return { success: false, error: '咦？这个提供商类型还没有支持呢~ 🚧' };
+      // Claude 使用 Anthropic API 格式
+      if (provider === 'claude') {
+        return await this.testClaude(apiUrl, apiKey, selectedModel);
+      }
+      
+      // 其他所有供应商都使用 OpenAI 兼容格式
+      // 包括: deepseek, openai, zhipu, moonshot, yi, siliconflow, groq, custom
+      return await this.testOpenAICompatible(apiUrl, apiKey, selectedModel);
     } catch (error) {
       return { success: false, error: formatFriendlyError(error) };
+    }
+  }
+  
+  // 测试 Claude (Anthropic) API
+  async testClaude(apiUrl, apiKey, model) {
+    try {
+      const response = await axios.post(
+        apiUrl,
+        {
+          model: model,
+          max_tokens: 10,
+          messages: [{ role: 'user', content: '你好' }]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          timeout: 15000
+        }
+      );
+
+      return {
+        success: true,
+        message: '✅ 耶！Claude 连接成功啦~ 可以开始对话了！',
+        response: response.data
+      };
+    } catch (error) {
+      console.error('Claude API测试失败:', error);
+      const friendlyError = formatFriendlyError(error.response?.data?.error?.message || error.message);
+      return {
+        success: false,
+        error: friendlyError
+      };
     }
   }
 
   // 测试 OpenAI 兼容 API（DeepSeek、OpenAI、自定义）
   async testOpenAICompatible(apiUrl, apiKey, model) {
     try {
+      // 自动处理 URL：如果是 base URL (以 /v1 结尾)，自动追加 /chat/completions
+      let finalUrl = apiUrl;
+      if (apiUrl.endsWith('/v1') || apiUrl.endsWith('/v1/')) {
+        finalUrl = apiUrl.replace(/\/v1\/?$/, '/v1/chat/completions');
+      }
+      
       const response = await axios.post(
-        apiUrl,
+        finalUrl,
         {
           model: model,
           messages: [{ role: 'user', content: '你好' }],
@@ -361,12 +408,69 @@ class APIService {
     try {
       if (provider === 'gemini') {
         return await this.callGeminiWithVision(analysisMessage, base64Image, activeConfig);
+      } else if (provider === 'claude') {
+        return await this.callClaudeWithVision(analysisMessage, base64Image, activeConfig);
       } else {
         // DeepSeek、OpenAI等使用OpenAI兼容格式
         return await this.callOpenAICompatibleWithVision(analysisMessage, base64Image, activeConfig);
       }
     } catch (error) {
       const friendlyError = formatFriendlyError(error.message);
+      return {
+        success: false,
+        error: friendlyError
+      };
+    }
+  }
+  
+  // 调用 Claude API（支持视觉）
+  async callClaudeWithVision(messages, base64Image, apiConfig) {
+    const { apiUrl, apiKey, selectedModel, name } = apiConfig;
+    
+    try {
+      const response = await axios.post(
+        apiUrl,
+        {
+          model: selectedModel,
+          max_tokens: 4096,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: messages[messages.length - 1].content
+              },
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/png',
+                  data: base64Image
+                }
+              }
+            ]
+          }]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          timeout: 60000
+        }
+      );
+
+      const content = response.data.content?.[0]?.text || '';
+      
+      return {
+        success: true,
+        content: content,
+        model: `${name} (${selectedModel})`
+      };
+    } catch (error) {
+      console.error('Claude视觉API调用失败:', error);
+      const friendlyError = formatFriendlyError(error.response?.data?.error?.message || error.message);
       return {
         success: false,
         error: friendlyError
@@ -400,7 +504,11 @@ class APIService {
         
         if (provider === 'gemini') {
           return await this.callGeminiWithTools(messagesWithHint, tools, activeConfig, onToolCall);
-        } else if (provider === 'deepseek' || provider === 'openai' || provider === 'custom') {
+        } else if (provider === 'claude') {
+          // Claude 暂不支持工具调用，使用普通对话
+          return await this.callClaude(messages, activeConfig);
+        } else {
+          // 所有 OpenAI 兼容的供应商都支持工具调用
           return await this.callOpenAIWithTools(messagesWithHint, tools, activeConfig, onToolCall);
         }
       }
@@ -409,8 +517,73 @@ class APIService {
     // 普通对话
     if (provider === 'gemini') {
       return await this.callGemini(messages, activeConfig);
+    } else if (provider === 'claude') {
+      return await this.callClaude(messages, activeConfig);
     } else {
+      // 所有其他供应商使用 OpenAI 兼容格式
       return await this.callOpenAICompatible(messages, activeConfig);
+    }
+  }
+  
+  // 调用 Claude (Anthropic) API
+  async callClaude(messages, apiConfig) {
+    const { apiUrl, apiKey, selectedModel, name } = apiConfig;
+    
+    try {
+      // 转换消息格式：提取 system 消息
+      let systemPrompt = '';
+      const claudeMessages = [];
+      
+      for (const msg of messages) {
+        if (msg.role === 'system') {
+          systemPrompt = msg.content;
+        } else {
+          claudeMessages.push({
+            role: msg.role,
+            content: msg.content
+          });
+        }
+      }
+      
+      const requestBody = {
+        model: selectedModel,
+        max_tokens: 4096,
+        messages: claudeMessages
+      };
+      
+      // 如果有 system 消息，添加到请求中
+      if (systemPrompt) {
+        requestBody.system = systemPrompt;
+      }
+      
+      const response = await axios.post(
+        apiUrl,
+        requestBody,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          timeout: 60000
+        }
+      );
+
+      // Claude 响应格式不同
+      const content = response.data.content?.[0]?.text || '';
+      
+      return {
+        success: true,
+        content: content,
+        model: `${name} (${selectedModel})`
+      };
+    } catch (error) {
+      console.error('Claude API调用失败:', error);
+      const friendlyError = formatFriendlyError(error.response?.data?.error?.message || error.message);
+      return {
+        success: false,
+        error: friendlyError
+      };
     }
   }
 
@@ -486,12 +659,13 @@ class APIService {
     // 根据提供商选择不同的工具调用方式
     if (provider === 'gemini') {
       return await this.callGeminiWithTools(messagesWithHint, tools, activeConfig, onToolCall);
-    } else if (provider === 'deepseek' || provider === 'openai' || provider === 'custom') {
+    } else if (provider === 'claude') {
+      // Claude 暂不支持工具调用，使用普通对话
+      return await this.callClaude(messages, activeConfig);
+    } else {
+      // 所有 OpenAI 兼容的供应商（deepseek, openai, zhipu, moonshot, yi, siliconflow, groq, custom）
       return await this.callOpenAIWithTools(messagesWithHint, tools, activeConfig, onToolCall);
     }
-
-    // 其他提供商使用普通对话
-    return await this.sendMessage(messages);
   }
 
   /**

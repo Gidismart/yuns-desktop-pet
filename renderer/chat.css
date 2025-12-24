@@ -340,6 +340,7 @@ body {
 
 /* ========== 输入区域 ========== */
 #input-container {
+  position: relative;  /* 模板面板定位参考点 */
   background: var(--card-bg);
   backdrop-filter: blur(12px);
   border-radius: var(--border-radius);
@@ -1218,4 +1219,70 @@ body.dark-mode #messages::-webkit-scrollbar-thumb,
 body.dark-mode #user-input::-webkit-scrollbar-thumb,
 body.dark-mode #edit-input::-webkit-scrollbar-thumb {
   background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+}
+
+/* ========== 提示词模板快捷栏样式 ========== */
+.template-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 152, 0, 0.1);
+  margin-bottom: 8px;
+}
+
+.template-quick-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none;
+}
+
+.template-quick-buttons::-webkit-scrollbar {
+  display: none;
+}
+
+.template-quick-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--primary-light);
+  background: linear-gradient(135deg, #FFF8F0 0%, #FFF3E0 100%);
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.template-quick-btn:hover {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, var(--primary-light) 0%, #FFE0B2 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+}
+
+.template-quick-btn .template-icon {
+  font-size: 14px;
+}
+
+
+/* ========== 夜间模式 - 模板样式 ========== */
+body.dark-mode .template-bar {
+  border-bottom-color: #2D3A5A;
+}
+
+body.dark-mode .template-quick-btn {
+  background: linear-gradient(135deg, #252540 0%, #2D3A5A 100%);
+  border-color: #3D4A6A;
+  color: #E4E4E7;
+}
+
+body.dark-mode .template-quick-btn:hover {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.25) 100%);
 }

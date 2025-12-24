@@ -33,6 +33,7 @@ const themeSelect = document.getElementById('theme-select');
 const fontSizeSelect = document.getElementById('font-size');
 
 // DOM元素 - 对话设置
+const autoOpenChatCheckbox = document.getElementById('auto-open-chat');
 const saveHistoryCheckbox = document.getElementById('save-history');
 const markdownPathInput = document.getElementById('markdown-path');
 const changePathBtn = document.getElementById('change-path-btn');
@@ -48,6 +49,8 @@ const apiUrlInput = document.getElementById('api-url');
 const apiKeyInput = document.getElementById('api-key');
 const modelSelect = document.getElementById('model-select');
 const modelInfo = document.getElementById('model-info');
+const customModelGroup = document.getElementById('custom-model-group');
+const customModelInput = document.getElementById('custom-model-input');
 const enabledCheckbox = document.getElementById('enabled-checkbox');
 const testConfigBtn = document.getElementById('test-config-btn');
 const saveConfigBtn = document.getElementById('save-config-btn');
@@ -116,10 +119,13 @@ function createConfigCard(config, isActive) {
   const card = document.createElement('div');
   card.className = `config-card ${isActive ? 'active' : ''} ${!config.enabled ? 'disabled' : ''}`;
   
+  // 使用品牌图标
+  const iconClass = template?.icon || 'custom';
+  
   card.innerHTML = `
     <div class="card-header">
       <div class="card-title">
-        <span class="provider-icon">${template?.icon || '⚙️'}</span>
+        <span class="provider-icon ${iconClass}" data-provider="${provider}"></span>
         <span>${config.name}</span>
         ${isActive ? '<span class="card-badge active">当前激活</span>' : ''}
         ${!config.enabled ? '<span class="card-badge disabled">已禁用</span>' : ''}
@@ -193,6 +199,12 @@ async function loadChatSettings() {
     fontSizeSelect.value = fontSize;
   }
   
+  // 加载启动时自动打开对话窗口设置
+  const autoOpenChat = await window.electronAPI.storeGet('autoOpenChat') || false;
+  if (autoOpenChatCheckbox) {
+    autoOpenChatCheckbox.checked = autoOpenChat;
+  }
+  
   // 加载保存对话历史设置
   const saveHistory = await window.electronAPI.storeGet('saveHistory');
   if (saveHistoryCheckbox) {
@@ -204,6 +216,7 @@ async function loadChatSettings() {
   if (markdownPathInput) {
     markdownPathInput.value = markdownPath;
   }
+  
 }
 
 // 加载宠物设置
@@ -311,6 +324,12 @@ function bindEvents() {
     showToast(`📝 字体大小已调整为${sizeNames[fontSize]}！`, 'success');
   });
   
+  // 启动时自动打开对话窗口开关
+  autoOpenChatCheckbox?.addEventListener('change', async () => {
+    await window.electronAPI.storeSet('autoOpenChat', autoOpenChatCheckbox.checked);
+    showToast(autoOpenChatCheckbox.checked ? '✅ 下次启动将自动打开对话窗口' : '⏹️ 已关闭自动打开对话窗口', 'success');
+  });
+  
   // 保存对话历史开关
   saveHistoryCheckbox?.addEventListener('change', async () => {
     await window.electronAPI.storeSet('saveHistory', saveHistoryCheckbox.checked);
@@ -416,7 +435,28 @@ function openModal(config = null) {
     enabledCheckbox.checked = config.enabled !== false;
     
     onProviderTypeChange();
-    modelSelect.value = config.selectedModel;
+    
+    // 尝试在下拉列表中找到对应的模型
+    const modelExists = Array.from(modelSelect.options).some(opt => opt.value === config.selectedModel);
+    
+    if (modelExists) {
+      // 模型在列表中，直接选择
+      modelSelect.value = config.selectedModel;
+    } else {
+      // 模型不在列表中，使用手动输入
+      // 找到手动输入选项
+      const customInputOption = Array.from(modelSelect.options).find(opt => opt.dataset.customInput === 'true');
+      if (customInputOption) {
+        modelSelect.value = customInputOption.value;
+        if (customModelInput) {
+          customModelInput.value = config.selectedModel || '';
+        }
+      } else {
+        // 如果没有手动输入选项，直接设置值（虽然可能不在列表中）
+        modelSelect.value = config.selectedModel;
+      }
+    }
+    
     onModelChange();
   } else {
     modalTitle.textContent = '添加配置';
@@ -425,8 +465,11 @@ function openModal(config = null) {
     apiUrlInput.value = '';
     apiKeyInput.value = '';
     modelSelect.innerHTML = '<option value="">请先选择提供商类型</option>';
+    modelSelect.style.display = '';
     enabledCheckbox.checked = true;
     modelInfo.classList.remove('show');
+    customModelGroup?.classList.add('hidden');
+    if (customModelInput) customModelInput.value = '';
   }
   
   testResult.classList.add('hidden');
@@ -447,18 +490,36 @@ function onProviderTypeChange() {
     modelSelect.innerHTML = '<option value="">请先选择提供商类型</option>';
     apiUrlInput.value = '';
     modelInfo.classList.remove('show');
+    customModelGroup?.classList.add('hidden');
     return;
   }
   
   const template = appConfig.providerTemplates[provider];
-  apiUrlInput.value = template.defaultApiUrl;
+  
+  // 只有在新建模式（非编辑）或当前 URL 为空时才设置默认 URL
+  // 编辑模式下保留用户已保存的 API 地址
+  if (!editingConfigId || !apiUrlInput.value.trim()) {
+    apiUrlInput.value = template.defaultApiUrl;
+  }
+  
+  // 隐藏自定义输入框（默认）
+  customModelGroup?.classList.add('hidden');
+  modelSelect.style.display = '';
   
   // 填充模型列表
   modelSelect.innerHTML = '';
   template.models.forEach(model => {
     const option = document.createElement('option');
     option.value = model.id;
-    option.textContent = model.name + (model.recommended ? ' (推荐)' : '');
+    
+    // 特殊处理自定义输入选项
+    if (model.isCustomInput) {
+      option.textContent = model.name;
+      option.dataset.customInput = 'true';
+    } else {
+      option.textContent = model.name + (model.recommended ? ' ⭐' : '');
+    }
+    
     modelSelect.appendChild(option);
   });
   
@@ -469,18 +530,42 @@ function onProviderTypeChange() {
 // 模型选择变化
 function onModelChange() {
   const provider = providerTypeSelect.value;
+  const template = appConfig.providerTemplates[provider];
   const modelId = modelSelect.value;
   
   if (!provider || !modelId) {
     modelInfo.classList.remove('show');
+    customModelGroup?.classList.add('hidden');
     return;
   }
   
-  const template = appConfig.providerTemplates[provider];
-  const model = template.models.find(m => m.id === modelId);
+  // 检查是否选择了"手动输入"选项
+  const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+  const isCustomInputSelected = selectedOption?.dataset.customInput === 'true';
+  
+  if (isCustomInputSelected) {
+    // 显示自定义输入框
+    customModelGroup?.classList.remove('hidden');
+    if (customModelInput) {
+      customModelInput.placeholder = '输入您的模型 ID，如 gpt-4o-2024-08-06';
+      customModelInput.focus();
+    }
+    modelInfo.innerHTML = `
+      <strong>💡 手动输入说明：</strong><br>
+      • 输入您的中转站支持的任意模型 ID<br>
+      • 模型 ID 区分大小写，请确保拼写正确
+    `;
+    modelInfo.classList.add('show');
+    return;
+  }
+  
+  // 隐藏自定义输入框
+  customModelGroup?.classList.add('hidden');
+  
+  const model = template?.models.find(m => m.id === modelId);
   
   if (model) {
-    let info = model.description;
+    let info = model.description || '';
     if (model.contextLength) info += `<br>上下文: ${model.contextLength}`;
     if (model.maxOutput) info += ` | 输出: ${model.maxOutput}`;
     
@@ -491,17 +576,50 @@ function onModelChange() {
   }
 }
 
+// 获取当前选择的模型 ID
+function getSelectedModel() {
+  const modelId = modelSelect.value;
+  
+  // 检查是否选择了"手动输入"选项
+  const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+  const isCustomInputSelected = selectedOption?.dataset.customInput === 'true';
+  
+  if (isCustomInputSelected && customModelInput) {
+    const customValue = customModelInput.value.trim();
+    if (!customValue) {
+      return null; // 返回 null 表示未填写
+    }
+    return customValue;
+  }
+  
+  return modelId;
+}
+
 // 测试当前配置
 async function testCurrentConfig() {
+  const selectedModel = getSelectedModel();
   const config = {
     provider: providerTypeSelect.value,
     apiUrl: apiUrlInput.value.trim(),
     apiKey: apiKeyInput.value.trim(),
-    selectedModel: modelSelect.value
+    selectedModel: selectedModel
   };
   
-  if (!config.provider || !config.apiUrl || !config.apiKey || !config.selectedModel) {
+  // 检查是否选择了手动输入但没填写
+  const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+  const isCustomInputSelected = selectedOption?.dataset.customInput === 'true';
+  
+  if (!config.provider || !config.apiUrl || !config.apiKey) {
     showTestResult(false, '📝 嗯...还有一些必填项没填呢~ 请把所有带 * 号的项目都填上吧！');
+    return;
+  }
+  
+  if (!config.selectedModel) {
+    if (isCustomInputSelected) {
+      showTestResult(false, '📝 您选择了手动输入模型，请在下方输入框填写模型 ID~');
+    } else {
+      showTestResult(false, '📝 请选择一个模型~');
+    }
     return;
   }
   
@@ -533,17 +651,31 @@ function showTestResult(success, message) {
 
 // 保存当前配置
 async function saveCurrentConfig() {
+  const selectedModel = getSelectedModel();
   const config = {
     name: configNameInput.value.trim(),
     provider: providerTypeSelect.value,
     apiUrl: apiUrlInput.value.trim(),
     apiKey: apiKeyInput.value.trim(),
-    selectedModel: modelSelect.value,
+    selectedModel: selectedModel,
     enabled: enabledCheckbox.checked
   };
   
-  if (!config.name || !config.provider || !config.apiUrl || !config.apiKey || !config.selectedModel) {
+  // 检查是否选择了手动输入但没填写
+  const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+  const isCustomInputSelected = selectedOption?.dataset.customInput === 'true';
+  
+  if (!config.name || !config.provider || !config.apiUrl || !config.apiKey) {
     showToast('📝 嗯...还有一些必填项没填呢~ 请把所有带 * 号的项目都填上吧！', 'info');
+    return;
+  }
+  
+  if (!config.selectedModel) {
+    if (isCustomInputSelected) {
+      showToast('📝 您选择了手动输入模型，请在下方输入框填写模型 ID~', 'info');
+    } else {
+      showToast('📝 请选择一个模型~', 'info');
+    }
     return;
   }
   
@@ -1037,12 +1169,29 @@ const addGeminiKeyBtn = document.getElementById('add-gemini-key');
 const allGeminiKeysList = document.getElementById('all-gemini-keys-list');
 const manualGeminiKeysList = document.getElementById('manual-gemini-keys-list');
 
+// 网络代理 DOM 元素
+const networkProxyEnabledCheckbox = document.getElementById('network-proxy-enabled');
+const proxyHostInput = document.getElementById('proxy-host');
+const proxyPortNetworkInput = document.getElementById('proxy-port-network');
+const testNetworkProxyBtn = document.getElementById('test-network-proxy-btn');
+const saveNetworkProxyBtn = document.getElementById('save-network-proxy-btn');
+const proxyTestResult = document.getElementById('proxy-test-result');
+const proxyConfigDetails = document.getElementById('proxy-config-details');
+
 // 中转站配置
 let proxyConfig = {
   enabled: false,
   port: 3001,
   geminiKeys: [],
   autoSyncApiConfigs: true
+};
+
+// 网络代理配置
+let networkProxyConfig = {
+  enabled: false,
+  host: '127.0.0.1',
+  port: 7890,
+  type: 'http'
 };
 
 // 所有 Gemini Keys（包括 API 配置中同步的）
@@ -1065,48 +1214,274 @@ async function loadProxyConfig() {
     proxyPortInput.value = proxyConfig.port || 3001;
   }
   
+  // 加载网络代理配置
+  await loadNetworkProxyConfig();
+  
   renderAllGeminiKeys();
   renderManualGeminiKeys();
   await updateProxyStatus();
 }
 
-// 更新中转站状态显示
+// 加载网络代理配置
+async function loadNetworkProxyConfig() {
+  try {
+    networkProxyConfig = await window.electronAPI.getNetworkProxy();
+    
+    if (networkProxyEnabledCheckbox) {
+      networkProxyEnabledCheckbox.checked = networkProxyConfig.enabled;
+    }
+    
+    if (proxyHostInput) {
+      proxyHostInput.value = networkProxyConfig.host || '127.0.0.1';
+    }
+    
+    if (proxyPortNetworkInput) {
+      proxyPortNetworkInput.value = networkProxyConfig.port || 7890;
+    }
+    
+    // 根据启用状态显示/隐藏详情
+    updateProxyConfigVisibility();
+  } catch (error) {
+    console.error('加载网络代理配置失败:', error);
+  }
+}
+
+// 更新代理配置详情的可见性
+function updateProxyConfigVisibility() {
+  if (proxyConfigDetails) {
+    proxyConfigDetails.style.opacity = networkProxyEnabledCheckbox?.checked ? '1' : '0.6';
+  }
+}
+
+// 状态刷新定时器
+let proxyStatusTimer = null;
+
+// 更新中转站状态显示（增强版）
 async function updateProxyStatus() {
-  if (!proxyStatus) return;
+  const statusPanel = document.getElementById('proxy-status-panel');
+  const statusDetails = document.getElementById('proxy-status-details');
+  if (!statusPanel) return;
   
   try {
     const status = await window.electronAPI.getProxyStatus();
     
+    const statusDot = statusPanel.querySelector('.status-dot');
+    const statusText = statusPanel.querySelector('.status-text');
+    
     if (status.running) {
-      proxyStatus.classList.add('running');
-      const keyCount = status.keys?.total || 0;
-      proxyStatus.querySelector('.status-text').textContent = 
-        `运行中 - ${keyCount} 个 Key 可用 - http://localhost:${proxyConfig.port}/v1`;
+      statusPanel.classList.add('running');
+      statusPanel.classList.remove('error', 'warning');
+      statusDetails?.classList.remove('hidden');
+      
+      // 根据健康度设置样式
+      if (status.healthLevel === 'critical') {
+        statusPanel.classList.add('error');
+        statusText.textContent = `⚠️ 服务异常 - 所有 Key 不可用`;
+      } else if (status.healthLevel === 'warning') {
+        statusPanel.classList.add('warning');
+        statusText.textContent = `⚡ 运行中 - ${status.available}/${status.total} 个 Key 可用`;
+      } else {
+        statusText.textContent = `✅ 运行中 - ${status.available}/${status.total} 个 Key 可用`;
+      }
+      
+      // 更新统计数据
+      updateStatusStats(status);
+      
+      // 更新健康度指示
+      updateHealthIndicator(status);
+      
+      // 更新下次恢复时间
+      updateNextRecovery(status);
+      
+      // 用运行时数据更新 Key 列表
+      if (status.keys) {
+        updateKeysWithStatus(status.keys);
+      }
+      
     } else {
-      proxyStatus.classList.remove('running');
-      proxyStatus.querySelector('.status-text').textContent = '未启动';
+      statusPanel.classList.remove('running', 'error', 'warning');
+      statusDetails?.classList.add('hidden');
+      statusText.textContent = '未启动';
     }
   } catch (error) {
-    proxyStatus.classList.remove('running');
-    proxyStatus.querySelector('.status-text').textContent = '状态未知';
+    const statusText = statusPanel?.querySelector('.status-text');
+    if (statusText) {
+      statusText.textContent = '状态获取失败';
+    }
+    console.error('获取中转站状态失败:', error);
   }
   
-  // 更新 URL 显示
+  // 更新 URL 显示（使用 127.0.0.1 避免 IPv6 问题）
   const proxyUrl = document.getElementById('proxy-url');
   if (proxyUrl) {
-    proxyUrl.textContent = `http://localhost:${proxyConfig.port}/v1`;
+    proxyUrl.textContent = `http://127.0.0.1:${proxyConfig.port}/v1`;
   }
 }
 
-// 渲染所有 Gemini Keys（包括 API 配置中同步的）
+// 更新统计数据
+function updateStatusStats(status) {
+  const statUptime = document.getElementById('stat-uptime');
+  const statRequests = document.getElementById('stat-requests');
+  const statSuccessRate = document.getElementById('stat-success-rate');
+  const statAvailableKeys = document.getElementById('stat-available-keys');
+  
+  if (statUptime) statUptime.textContent = status.uptimeFormatted || '--';
+  if (statRequests) statRequests.textContent = status.stats?.totalRequests || 0;
+  if (statSuccessRate) {
+    const rate = status.stats?.successRate ?? 100;
+    statSuccessRate.textContent = `${rate}%`;
+    statSuccessRate.className = `stat-value ${rate >= 90 ? 'good' : rate >= 70 ? 'warning' : 'bad'}`;
+  }
+  if (statAvailableKeys) statAvailableKeys.textContent = `${status.available}/${status.total}`;
+}
+
+// 更新健康度指示
+function updateHealthIndicator(status) {
+  const indicator = document.getElementById('health-indicator');
+  if (!indicator) return;
+  
+  const icon = indicator.querySelector('.health-icon');
+  const text = indicator.querySelector('.health-text');
+  
+  if (status.healthLevel === 'healthy') {
+    icon.textContent = '🟢';
+    text.textContent = '服务健康';
+    indicator.className = 'health-indicator healthy';
+  } else if (status.healthLevel === 'warning') {
+    icon.textContent = '🟡';
+    text.textContent = '部分 Key 冷却中';
+    indicator.className = 'health-indicator warning';
+  } else {
+    icon.textContent = '🔴';
+    text.textContent = '服务不可用';
+    indicator.className = 'health-indicator critical';
+  }
+}
+
+// 更新下次恢复时间
+function updateNextRecovery(status) {
+  const recoveryDiv = document.getElementById('next-recovery');
+  const countdown = document.getElementById('recovery-countdown');
+  
+  if (!recoveryDiv || !countdown) return;
+  
+  if (status.nextRecoveryTime && status.nextRecoveryTime > 0) {
+    recoveryDiv.classList.remove('hidden');
+    countdown.textContent = status.nextRecoveryFormatted || '--';
+  } else {
+    recoveryDiv.classList.add('hidden');
+  }
+}
+
+// 用运行时状态更新 Key 列表
+function updateKeysWithStatus(keysStatus) {
+  const keyItems = allGeminiKeysList?.querySelectorAll('.key-item');
+  if (!keyItems || !keysStatus) return;
+  
+  keysStatus.forEach((keyStatus, index) => {
+    const keyItem = keyItems[index];
+    if (!keyItem) return;
+    
+    // 更新状态标签
+    let statusEl = keyItem.querySelector('.key-status');
+    if (statusEl) {
+      statusEl.className = `key-status ${keyStatus.status}`;
+      statusEl.innerHTML = `${keyStatus.statusEmoji} ${keyStatus.statusText}`;
+    }
+    
+    // 更新配额信息（RPM）
+    let quotaEl = keyItem.querySelector('.key-quota');
+    if (!quotaEl) {
+      quotaEl = document.createElement('span');
+      quotaEl.className = 'key-quota';
+      keyItem.querySelector('.key-info')?.appendChild(quotaEl);
+    }
+    if (keyStatus.rpm) {
+      const rpmPercent = parseInt(keyStatus.rpm.percentage);
+      const rpmClass = rpmPercent >= 80 ? 'danger' : rpmPercent >= 50 ? 'warning' : '';
+      quotaEl.innerHTML = `<span class="${rpmClass}" title="每分钟请求 (${keyStatus.rpm.remaining} 剩余)">⚡ ${keyStatus.rpm.current}/${keyStatus.rpm.limit}</span>`;
+    }
+    
+    // 更新每日配额
+    let dailyEl = keyItem.querySelector('.key-daily');
+    if (!dailyEl) {
+      dailyEl = document.createElement('span');
+      dailyEl.className = 'key-daily';
+      keyItem.querySelector('.key-info')?.appendChild(dailyEl);
+    }
+    if (keyStatus.daily) {
+      const dailyPercent = parseFloat(keyStatus.daily.percentage);
+      const dailyClass = dailyPercent >= 90 ? 'danger' : dailyPercent >= 70 ? 'warning' : '';
+      dailyEl.innerHTML = `<span class="${dailyClass}" title="今日已用 ${keyStatus.daily.used}，重置时间: ${keyStatus.daily.resetIn}">📊 ${keyStatus.daily.remaining}</span>`;
+    }
+    
+    // 更新统计信息
+    let statsEl = keyItem.querySelector('.key-stats');
+    if (!statsEl) {
+      statsEl = document.createElement('div');
+      statsEl.className = 'key-stats';
+      keyItem.querySelector('.key-info')?.appendChild(statsEl);
+    }
+    
+    // 成功率显示
+    const successRate = parseFloat(keyStatus.successRate || 100);
+    const rateClass = successRate >= 90 ? 'good' : successRate >= 70 ? 'warning' : 'bad';
+    
+    statsEl.innerHTML = `
+      <span class="stat-mini" title="总请求/成功/失败">📈 ${keyStatus.totalRequests || 0}/${keyStatus.totalSuccesses || 0}/${keyStatus.totalFailures || 0}</span>
+      <span class="stat-mini ${rateClass}" title="成功率">${successRate}%</span>
+    `;
+    
+    // 如果有错误，显示错误信息
+    if (keyStatus.lastError) {
+      let errorEl = keyItem.querySelector('.key-error');
+      if (!errorEl) {
+        errorEl = document.createElement('div');
+        errorEl.className = 'key-error';
+        keyItem.appendChild(errorEl);
+      }
+      errorEl.innerHTML = `<span title="${keyStatus.lastError}">⚠️ ${keyStatus.lastError.slice(0, 30)}...</span>`;
+    }
+    
+    // 如果在冷却中，显示倒计时
+    if (keyStatus.status === 'cooldown' && keyStatus.cooldownRemaining) {
+      let cooldownEl = keyItem.querySelector('.key-cooldown');
+      if (!cooldownEl) {
+        cooldownEl = document.createElement('div');
+        cooldownEl.className = 'key-cooldown';
+        keyItem.appendChild(cooldownEl);
+      }
+      cooldownEl.innerHTML = `<span class="countdown">⏳ ${keyStatus.cooldownRemaining}</span>`;
+    } else {
+      keyItem.querySelector('.key-cooldown')?.remove();
+    }
+  });
+}
+
+// 启动状态自动刷新
+function startProxyStatusRefresh() {
+  stopProxyStatusRefresh();
+  proxyStatusTimer = setInterval(updateProxyStatus, 3000); // 每3秒刷新
+}
+
+// 停止状态自动刷新
+function stopProxyStatusRefresh() {
+  if (proxyStatusTimer) {
+    clearInterval(proxyStatusTimer);
+    proxyStatusTimer = null;
+  }
+}
+
+// 渲染所有 Gemini Keys（增强版，显示详细状态）
 function renderAllGeminiKeys() {
   if (!allGeminiKeysList) return;
   
   if (allGeminiKeys.length === 0) {
     allGeminiKeysList.innerHTML = `
       <div class="keys-empty">
-        还没有可用的 Gemini Key<br>
-        请先在「API 配置」中添加 Gemini 配置，或在下方手动添加 Key
+        <span class="empty-icon">🔑</span>
+        <p>还没有可用的 Gemini Key</p>
+        <p class="empty-hint">请先在「API 配置」中添加 Gemini 配置，或在下方手动添加 Key</p>
       </div>
     `;
     return;
@@ -1117,17 +1492,27 @@ function renderAllGeminiKeys() {
   allGeminiKeys.forEach((keyObj, index) => {
     const item = document.createElement('div');
     item.className = 'key-item';
+    item.dataset.keyIndex = index;
     
     const keyPreview = keyObj.key ? `${keyObj.key.slice(0, 8)}...${keyObj.key.slice(-4)}` : 'N/A';
     const sourceText = keyObj.source === 'api-config' 
-      ? `📌 来自: ${keyObj.configName || 'API配置'}` 
+      ? `📌 ${keyObj.configName || 'API配置'}` 
       : '✋ 手动添加';
     
     item.innerHTML = `
-      <span class="key-index">${index + 1}</span>
-      <span class="key-preview">${keyPreview}</span>
-      <span class="key-source" style="font-size: 11px; color: #888;">${sourceText}</span>
-      <span class="key-status active">可用</span>
+      <div class="key-main">
+        <span class="key-index">#${index + 1}</span>
+        <span class="key-preview">${keyPreview}</span>
+        <span class="key-source">${sourceText}</span>
+      </div>
+      <div class="key-info">
+        <span class="key-status active">🟢 就绪</span>
+        <div class="key-stats"></div>
+      </div>
+      <div class="key-actions-inline">
+        <button class="key-action-btn test-key-btn" data-index="${index}" title="测试此 Key">🔍</button>
+        <button class="key-action-btn reset-key-btn" data-index="${index}" title="重置此 Key">🔄</button>
+      </div>
     `;
     
     allGeminiKeysList.appendChild(item);
@@ -1178,6 +1563,7 @@ function bindProxyEvents() {
       const result = await window.electronAPI.startProxyServer();
       if (result.success) {
         showToast(`🚀 中转站已启动！${result.keyCount} 个 Key 可用`, 'success');
+        startProxyStatusRefresh(); // 开始自动刷新
       } else {
         showToast(`❌ 启动失败：${result.error}`, 'error');
         proxyEnabledCheckbox.checked = false;
@@ -1187,10 +1573,91 @@ function bindProxyEvents() {
       const result = await window.electronAPI.stopProxyServer();
       if (result.success) {
         showToast('⏹️ 中转站已停止', 'info');
+        stopProxyStatusRefresh(); // 停止自动刷新
       }
     }
     await updateProxyStatus();
   });
+  
+  // 测试连接按钮
+  document.getElementById('test-connection-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('test-connection-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 测试中...';
+    
+    try {
+      const result = await window.electronAPI.testProxyConnection();
+      if (result.success) {
+        showToast(`✅ ${result.message}`, 'success');
+      } else {
+        showToast(`❌ 连接失败：${result.error}`, 'error');
+      }
+    } catch (error) {
+      showToast(`❌ 测试失败：${error.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 测试';
+    }
+    
+    await updateProxyStatus();
+  });
+  
+  // 刷新状态按钮
+  document.getElementById('refresh-status-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('refresh-status-btn');
+    btn.classList.add('spinning');
+    await updateProxyStatus();
+    setTimeout(() => btn.classList.remove('spinning'), 500);
+    showToast('🔄 状态已刷新', 'info');
+  });
+  
+  // 重置所有 Key 按钮
+  document.getElementById('reset-all-keys-btn')?.addEventListener('click', async () => {
+    const result = await window.electronAPI.resetAllProxyKeys();
+    if (result.success) {
+      showToast('🔄 已重置所有冷却中的 Key', 'success');
+      await updateProxyStatus();
+    }
+  });
+  
+  // Key 列表操作（事件委托）- 测试和重置单个 Key
+  allGeminiKeysList?.addEventListener('click', async (e) => {
+    const target = e.target;
+    
+    if (target.classList.contains('test-key-btn')) {
+      const keyIndex = parseInt(target.dataset.index);
+      target.disabled = true;
+      target.textContent = '⏳';
+      
+      try {
+        const result = await window.electronAPI.testProxyKey(keyIndex);
+        if (result.success) {
+          showToast(`✅ Key #${keyIndex + 1} 连接正常 (${result.responseTime}ms)`, 'success');
+        } else {
+          showToast(`❌ Key #${keyIndex + 1} 测试失败：${result.error}`, 'error');
+        }
+      } catch (error) {
+        showToast(`❌ 测试失败：${error.message}`, 'error');
+      } finally {
+        target.disabled = false;
+        target.textContent = '🔍';
+      }
+      
+      await updateProxyStatus();
+    } else if (target.classList.contains('reset-key-btn')) {
+      const keyIndex = parseInt(target.dataset.index);
+      const result = await window.electronAPI.resetProxyKey(keyIndex);
+      if (result) {
+        showToast(`🔄 Key #${keyIndex + 1} 已重置`, 'success');
+        await updateProxyStatus();
+      }
+    }
+  });
+  
+  // 如果中转站已运行，开始自动刷新
+  if (proxyConfig.enabled) {
+    startProxyStatusRefresh();
+  }
   
   // 自动同步 API 配置
   autoSyncConfigsCheckbox?.addEventListener('change', async () => {
@@ -1294,6 +1761,82 @@ function bindProxyEvents() {
       }
     });
   });
+  
+  // ========== 网络代理配置事件 ==========
+  
+  // 启用/禁用网络代理
+  networkProxyEnabledCheckbox?.addEventListener('change', () => {
+    updateProxyConfigVisibility();
+  });
+  
+  // 测试网络代理
+  testNetworkProxyBtn?.addEventListener('click', async () => {
+    const host = proxyHostInput?.value || '127.0.0.1';
+    const port = parseInt(proxyPortNetworkInput?.value || '7890');
+    
+    // 显示测试中状态
+    showProxyTestResult('loading', '⏳ 正在测试代理连接...');
+    testNetworkProxyBtn.disabled = true;
+    
+    try {
+      const result = await window.electronAPI.testNetworkProxy({
+        enabled: true,
+        host,
+        port,
+        type: 'http'
+      });
+      
+      if (result.success) {
+        showProxyTestResult('success', `✅ ${result.message}`);
+      } else {
+        showProxyTestResult('error', `❌ ${result.error}`);
+      }
+    } catch (error) {
+      showProxyTestResult('error', `❌ 测试失败：${error.message}`);
+    } finally {
+      testNetworkProxyBtn.disabled = false;
+    }
+  });
+  
+  // 保存网络代理配置
+  saveNetworkProxyBtn?.addEventListener('click', async () => {
+    const enabled = networkProxyEnabledCheckbox?.checked || false;
+    const host = proxyHostInput?.value || '127.0.0.1';
+    const port = parseInt(proxyPortNetworkInput?.value || '7890');
+    
+    try {
+      const result = await window.electronAPI.setNetworkProxy({
+        enabled,
+        host,
+        port,
+        type: 'http'
+      });
+      
+      if (result.success) {
+        networkProxyConfig = { enabled, host, port, type: 'http' };
+        showToast(`✅ 代理配置已保存！${enabled ? '立即生效' : '已禁用代理'}`, 'success');
+        hideProxyTestResult();
+      }
+    } catch (error) {
+      showToast(`❌ 保存失败：${error.message}`, 'error');
+    }
+  });
+}
+
+// 显示代理测试结果
+function showProxyTestResult(type, message) {
+  if (!proxyTestResult) return;
+  
+  proxyTestResult.className = `proxy-test-result ${type}`;
+  proxyTestResult.textContent = message;
+  proxyTestResult.classList.remove('hidden');
+}
+
+// 隐藏代理测试结果
+function hideProxyTestResult() {
+  if (proxyTestResult) {
+    proxyTestResult.classList.add('hidden');
+  }
 }
 
 // 初始化应用

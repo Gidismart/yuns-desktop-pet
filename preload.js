@@ -193,6 +193,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return await ipcRenderer.invoke('refresh-proxy-keys');
   },
   
+  // 测试中转站连接
+  testProxyConnection: async () => {
+    return await ipcRenderer.invoke('test-proxy-connection');
+  },
+  
+  // 测试单个 Key
+  testProxyKey: async (keyIndex) => {
+    return await ipcRenderer.invoke('test-proxy-key', { keyIndex });
+  },
+  
+  // 重置单个 Key
+  resetProxyKey: async (keyIndex) => {
+    return await ipcRenderer.invoke('reset-proxy-key', { keyIndex });
+  },
+  
+  // 重置所有 Key
+  resetAllProxyKeys: async () => {
+    return await ipcRenderer.invoke('reset-all-proxy-keys');
+  },
+  
+  // ========== 网络代理配置 ==========
+  
+  // 获取网络代理配置
+  getNetworkProxy: async () => {
+    return await ipcRenderer.invoke('get-network-proxy');
+  },
+  
+  // 设置网络代理配置
+  setNetworkProxy: async (proxyConfig) => {
+    return await ipcRenderer.invoke('set-network-proxy', proxyConfig);
+  },
+  
+  // 测试网络代理
+  testNetworkProxy: async (proxyConfig) => {
+    return await ipcRenderer.invoke('test-network-proxy', proxyConfig);
+  },
+  
   // ========== 宠物相关 API ==========
   
   // 更新宠物图片
@@ -259,5 +296,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 移除主题变化监听
   removeThemeChangedListener: () => {
     ipcRenderer.removeAllListeners('theme-changed');
-  }
+  },
+  
+  // ========== 提示词模板相关 API ==========
+  
+  // 获取预设模板配置
+  getBuiltinTemplates: async () => {
+    return await ipcRenderer.invoke('get-builtin-templates');
+  },
+  
+  // 获取用户自定义模板
+  getCustomTemplates: async () => {
+    return await ipcRenderer.invoke('get-custom-templates');
+  },
+  
+  // 添加自定义模板
+  addCustomTemplate: async (template) => {
+    return await ipcRenderer.invoke('add-custom-template', { template });
+  },
+  
+  // 更新自定义模板
+  updateCustomTemplate: async (id, updates) => {
+    return await ipcRenderer.invoke('update-custom-template', { id, updates });
+  },
+  
+  // 删除自定义模板
+  deleteCustomTemplate: async (id) => {
+    return await ipcRenderer.invoke('delete-custom-template', { id });
+  },
+  
+  // 获取快捷访问模板列表
+  getQuickAccessTemplates: async () => {
+    return await ipcRenderer.invoke('get-quick-access-templates');
+  },
+  
+  // 设置快捷访问模板列表
+  setQuickAccessTemplates: async (templateIds) => {
+    return await ipcRenderer.invoke('set-quick-access-templates', { templateIds });
+  },
+  
 });

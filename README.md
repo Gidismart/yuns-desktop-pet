@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Electron-28.0.0-47848F?logo=electron" alt="Electron"/>
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License"/>
-  <img src="https://img.shields.io/badge/Version-2.1.0-blue" alt="Version"/>
+  <img src="https://img.shields.io/badge/Version-2.2.0-blue" alt="Version"/>
   <img src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows" alt="Platform"/>
 </p>
 
@@ -19,18 +19,30 @@
 
 ## ✨ 功能特性
 
-### 🤖 多模型AI对话
-- **DeepSeek** - 支持 DeepSeek-V3.2 Chat 和 Reasoner 模型
-- **Gemini** - 支持 Gemini 2.5 Pro/Flash 等全系列模型
-- **OpenAI** - 支持 GPT-4o、GPT-4 Turbo 等模型
-- **自定义** - 支持任何 OpenAI 兼容的 API 接口
+### 🤖 多模型AI对话（支持 10+ 提供商）
+
+**国际服务**
+- **DeepSeek** - DeepSeek-V3 Chat、DeepSeek-R1 推理模型
+- **Google Gemini** - Gemini 3 Pro/Flash、Gemini 2.5 系列（最新）
+- **OpenAI** - GPT-4o、o1/o3 推理系列
+- **Anthropic Claude** - Claude Sonnet 4、Claude 3.5 系列
+- **Groq** - Llama 3.3 70B（免费高速推理）
+
+**国内服务**
+- **智谱 GLM** - GLM-4 Plus、GLM-4V 视觉模型
+- **月之暗面 Kimi** - Moonshot v1 系列（128K 超长上下文）
+- **零一万物 Yi** - Yi Lightning、Yi Large
+- **硅基流动** - Qwen2.5、DeepSeek-V3 托管版
+
+**其他**
+- **自定义 API** - 支持任何 OpenAI 兼容接口，可手动输入模型 ID
 
 ### 👁️ 视觉分析
 - 一键截屏并发送给AI分析
 - 支持多模态视觉理解
 - 自动隐藏窗口后截屏，确保截图干净
 
-### 🛠️ MCP 工具调用 (新功能)
+### 🛠️ MCP 工具调用
 - 支持 Model Context Protocol (MCP) 标准
 - 内置文件系统、终端命令、网络请求等预设
 - AI 可自主调用工具完成复杂任务
@@ -40,7 +52,12 @@
 - 内置 Gemini API 代理服务器
 - 支持多 Key 轮询负载均衡
 - 自动从 API 配置同步 Gemini Keys
-- 方便在其他应用中使用 Gemini API
+- OpenAI 兼容格式，方便在其他应用中使用
+
+### 🌐 网络代理配置
+- 支持 HTTP/HTTPS 代理
+- 动态切换，无需重启应用
+- 适用于所有 API 请求
 
 ### 🎨 界面特性
 - 🐕 可爱的桌面宠物形象
@@ -111,12 +128,28 @@ npm run build:portable
 
 #### 支持的 API 提供商
 
-| 提供商 | 默认 API 地址 | 模型 |
-|-------|-------------|-----|
+| 提供商 | 默认 API 地址 | 推荐模型 |
+|-------|-------------|---------|
 | DeepSeek | `https://api.deepseek.com/v1/chat/completions` | deepseek-chat, deepseek-reasoner |
-| Gemini | `https://generativelanguage.googleapis.com/v1beta/models` | gemini-2.5-pro, gemini-2.5-flash 等 |
-| OpenAI | `https://api.openai.com/v1/chat/completions` | gpt-4o, gpt-4-turbo 等 |
-| 自定义 | 自行配置 | 自定义模型 |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/models` | gemini-3-pro-preview, gemini-2.5-flash |
+| OpenAI | `https://api.openai.com/v1/chat/completions` | gpt-4o, o1, o3-mini |
+| Anthropic Claude | `https://api.anthropic.com/v1/messages` | claude-sonnet-4, claude-3-5-sonnet |
+| Groq (免费) | `https://api.groq.com/openai/v1/chat/completions` | llama-3.3-70b-versatile |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4/chat/completions` | glm-4-plus, glm-4v-plus |
+| 月之暗面 Kimi | `https://api.moonshot.cn/v1/chat/completions` | moonshot-v1-128k |
+| 零一万物 Yi | `https://api.lingyiwanwu.com/v1/chat/completions` | yi-lightning, yi-large |
+| 硅基流动 | `https://api.siliconflow.cn/v1/chat/completions` | Qwen/Qwen2.5-72B-Instruct |
+| 自定义 API | 自行配置 | 支持手动输入任意模型 ID |
+
+### 网络代理配置
+
+如果需要通过代理访问 API：
+
+1. 进入 **设置** → **通用设置**
+2. 找到 **网络代理** 区域
+3. 启用代理并填写代理地址和端口
+4. 点击 **测试代理** 验证连接
+5. **保存配置** 后立即生效，无需重启
 
 ### MCP 工具配置
 
@@ -146,10 +179,20 @@ args: -y @anthropics/mcp-server-fetch
 
 ### Gemini 中转站配置
 
-1. 进入 **设置** → **API 配置**（底部）
+1. 进入 **设置** → **API 中转站**
 2. 开启中转站服务
 3. 默认端口：`3001`
-4. 访问地址：`http://localhost:3001/v1/chat/completions`
+4. 访问地址：`http://127.0.0.1:3001/v1/chat/completions`
+5. 支持 OpenAI 兼容格式调用
+
+### 自定义 API / 中转站配置
+
+适用于使用第三方 API 中转站的用户：
+
+1. 选择提供商类型为 **自定义 API**
+2. 填写中转站提供的 API 地址
+3. 填写中转站提供的 API Key
+4. 从列表选择模型，或选择 **手动输入模型 ID** 输入任意模型
 
 ---
 
@@ -236,10 +279,19 @@ npm run menu:custom
 | @modelcontextprotocol/sdk | MCP 协议支持 |
 | express | 中转站服务器 |
 | electron-builder | 应用打包 |
+| https-proxy-agent | 网络代理支持 |
 
 ---
 
 ## 📋 更新日志
+
+### v2.2.0 (2025-12)
+- ✨ 新增 6 个 AI 提供商：Claude、智谱、月之暗面、零一万物、硅基流动、Groq
+- ✨ 更新 Gemini 3 系列模型支持
+- ✨ 新增网络代理配置功能（动态切换，无需重启）
+- ✨ 自定义 API 支持手动输入任意模型 ID
+- 🐛 修复编辑配置时 API 地址被重置的问题
+- 💄 优化设置页面 UI
 
 ### v2.1.0 (2024-12)
 - ✨ 新增 MCP 工具调用功能
@@ -264,7 +316,7 @@ npm run menu:custom
 ## 📞 联系方式
 
 - **作者**: 匀升
-- **邮箱**: 2644961476@qq.com
+- **邮箱**: qiyunsheng919@gmail.com
 - **GitHub**: [JianguSheng](https://github.com/JianguSheng)
 - **项目地址**: [yuns-desktop-pet](https://github.com/JianguSheng/yuns-desktop-pet)
 
@@ -279,4 +331,3 @@ npm run menu:custom
 <p align="center">
   Made with ❤️ by 匀升
 </p>
-

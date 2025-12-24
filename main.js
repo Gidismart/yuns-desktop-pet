@@ -7,9 +7,32 @@ const apiService = require('./api-service');
 const mcpClient = require('./mcp-client');
 const proxyServer = require('./proxy-server');
 
+// 加载用户配置的网络代理
+const networkProxy = store.getNetworkProxy();
+if (networkProxy && networkProxy.enabled) {
+  const proxyUrl = `http://${networkProxy.host}:${networkProxy.port}`;
+  app.commandLine.appendSwitch('proxy-server', proxyUrl);
+  console.log(`🌐 已加载用户代理配置: ${proxyUrl}`);
+} else {
+  console.log('🌐 未配置代理，使用直连模式');
+}
+
+// 启用 Web Speech API 所需的实验性功能
+app.commandLine.appendSwitch('enable-speech-dispatcher');
+app.commandLine.appendSwitch('enable-experimental-web-platform-features');
+
 let petWindow = null;
 let chatWindow = null;
 let settingsWindow = null;
+
+// 格式化运行时间
+function formatUptime(seconds) {
+  if (seconds < 60) return `${seconds}秒`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}小时${mins}分钟`;
+}
 
 // 获取应用图标路径（支持多种格式回退）
 function getAppIcon() {
@@ -105,7 +128,8 @@ function createChatWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      experimentalFeatures: true  // 启用实验性功能，支持 Web Speech API
     }
   };
   
@@ -514,6 +538,7 @@ ipcMain.handle('start-proxy-server', () => {
       return { success: false, error: '没有可用的 Gemini API Key，请先在 API 配置中添加 Gemini 配置' };
     }
     
+    // 中转站会自动从 store 读取网络代理配置
     proxyServer.start(allKeys, proxyConfig.port || 3001);
     store.setProxyEnabled(true);
     return { success: true, port: proxyConfig.port || 3001, keyCount: allKeys.length };
@@ -533,9 +558,94 @@ ipcMain.handle('stop-proxy-server', () => {
   }
 });
 
-// 获取中转站状态
+// 获取中转站状态（增强版）
 ipcMain.handle('get-proxy-status', () => {
-  return proxyServer.getStatus();
+  const rawStatus = proxyServer.getStatus();
+  
+  // 从 keys 获取 keyManager 状态
+  const keyManagerStatus = rawStatus.keys || {};
+  const keys = keyManagerStatus.keys || [];
+  
+  // 计算运行时间格式化
+  const uptimeFormatted = rawStatus.uptime > 0 
+    ? formatUptime(rawStatus.uptime) 
+    : '--';
+  
+  return {
+    running: rawStatus.running || false,
+    port: rawStatus.port || 3001,
+    uptime: rawStatus.uptime || 0,
+    uptimeFormatted: uptimeFormatted,
+    
+    // 汇总信息（直接从 keyManager 获取）
+    total: keyManagerStatus.total || 0,
+    available: keyManagerStatus.available || 0,
+    healthLevel: keyManagerStatus.healthLevel || 'healthy',
+    
+    // 统计信息
+    stats: {
+      totalRequests: keyManagerStatus.stats?.totalRequests || rawStatus.stats?.totalRequests || 0,
+      successfulRequests: keyManagerStatus.stats?.totalSuccesses || rawStatus.stats?.successfulRequests || 0,
+      failedRequests: keyManagerStatus.stats?.totalFailures || rawStatus.stats?.failedRequests || 0,
+      successRate: keyManagerStatus.stats?.successRate 
+        ? `${keyManagerStatus.stats.successRate}%` 
+        : (rawStatus.stats?.successRate || '100%')
+    },
+    
+    // 下次恢复时间
+    nextRecoveryTime: keyManagerStatus.nextRecoveryTime || null,
+    nextRecoveryFormatted: keyManagerStatus.nextRecoveryFormatted || null,
+    
+    // Key 详情（直接传递 keyManager 的 keys 数据）
+    keys: keys.map(k => ({
+      index: k.index,
+      keyPreview: k.keyPreview,
+      source: k.source,
+      configName: k.configName,
+      status: k.status,
+      
+      // 状态显示
+      statusEmoji: k.statusEmoji || (k.status === 'active' ? '🟢' : (k.status === 'cooldown' ? '🟡' : '🔴')),
+      statusText: k.statusText || k.status,
+      
+      // 统计 - 使用正确的字段名 totalRequests/totalSuccesses/totalFailures
+      totalRequests: k.totalRequests || 0,
+      totalSuccesses: k.totalSuccesses || 0,
+      totalFailures: k.totalFailures || 0,
+      successRate: k.successRate || 100,
+      avgResponseTime: k.avgResponseTime || 0,
+      
+      // 冷却信息
+      cooldownRemaining: k.cooldownFormatted || k.cooldownRemaining,
+      
+      // 错误信息
+      lastError: k.lastError,
+      lastErrorFormatted: k.lastErrorFormatted
+    })),
+    
+    // 限制配置
+    limits: { rpmLimit: 15, dailyLimit: 1500 }
+  };
+});
+
+// 测试单个 Key
+ipcMain.handle('test-proxy-key', async (event, { keyIndex }) => {
+  if (!proxyServer.isRunning) {
+    return { success: false, error: '中转站未运行' };
+  }
+  
+  const keyManager = proxyServer.getKeyManager();
+  return await keyManager.testKey(keyIndex);
+});
+
+// 重置单个 Key
+ipcMain.handle('reset-proxy-key', (event, { keyIndex }) => {
+  if (!proxyServer.isRunning) {
+    return { success: false, error: '中转站未运行' };
+  }
+  
+  const keyManager = proxyServer.getKeyManager();
+  return { success: keyManager.resetKey(keyIndex) };
 });
 
 // 添加额外的 Gemini Key（手动添加）
@@ -584,11 +694,147 @@ ipcMain.handle('set-auto-sync-api-configs', (event, { enabled }) => {
   return { success: true };
 });
 
+// ========== 网络代理配置 ==========
+
+// 获取网络代理配置
+ipcMain.handle('get-network-proxy', () => {
+  return store.getNetworkProxy();
+});
+
+// 设置网络代理配置（动态生效，无需重启）
+ipcMain.handle('set-network-proxy', (event, proxyConfig) => {
+  store.setNetworkProxy(proxyConfig);
+  // 配置已保存到 store，proxy-server 和 key-manager 会动态读取
+  console.log(`🌐 网络代理配置已更新: ${proxyConfig.enabled ? `${proxyConfig.host}:${proxyConfig.port}` : '已禁用'}`);
+  return { success: true, needRestart: false };  // 不需要重启！
+});
+
+// 测试网络代理连接
+ipcMain.handle('test-network-proxy', async (event, proxyConfig) => {
+  const https = require('https');
+  
+  try {
+    const { HttpsProxyAgent } = require('https-proxy-agent');
+    const proxyUrl = `http://${proxyConfig.host}:${proxyConfig.port}`;
+    const agent = new HttpsProxyAgent(proxyUrl);
+    
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      
+      const req = https.request({
+        hostname: 'generativelanguage.googleapis.com',
+        port: 443,
+        path: '/v1beta/models',
+        method: 'GET',
+        agent: agent,
+        timeout: 15000
+      }, (res) => {
+        const responseTime = Date.now() - startTime;
+        // 能连接就算成功（即使返回 401）
+        if (res.statusCode === 200 || res.statusCode === 401 || res.statusCode === 403) {
+          resolve({ 
+            success: true, 
+            responseTime,
+            message: `代理连接成功 (${responseTime}ms)`
+          });
+        } else {
+          resolve({ 
+            success: false, 
+            error: `HTTP ${res.statusCode}`,
+            responseTime
+          });
+        }
+        res.resume(); // 消费响应
+      });
+      
+      req.on('error', (err) => {
+        resolve({ 
+          success: false, 
+          error: err.message.includes('ECONNREFUSED') 
+            ? '无法连接到代理服务器，请检查代理是否启动'
+            : err.message
+        });
+      });
+      
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ 
+          success: false, 
+          error: '代理连接超时，请检查代理配置'
+        });
+      });
+      
+      req.end();
+    });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // 刷新中转站 Keys（当 API 配置变化时调用）
 ipcMain.handle('refresh-proxy-keys', () => {
   if (proxyServer.isRunning) {
     proxyServer.reloadKeys(store.getAllGeminiKeys());
   }
+  return { success: true };
+});
+
+// 测试中转站连接
+ipcMain.handle('test-proxy-connection', async () => {
+  return await proxyServer.testConnection();
+});
+
+// 重置所有 Key
+ipcMain.handle('reset-all-proxy-keys', () => {
+  return proxyServer.resetAllKeys();
+});
+
+// ========== 提示词模板相关 IPC 处理 ==========
+
+// 获取预设模板配置
+ipcMain.handle('get-builtin-templates', () => {
+  try {
+    const templatePath = path.join(__dirname, 'config', 'prompt-templates.json');
+    if (fs.existsSync(templatePath)) {
+      const content = fs.readFileSync(templatePath, 'utf-8');
+      return JSON.parse(content);
+    }
+    return { categories: [], quickAccess: [], templates: [] };
+  } catch (error) {
+    console.error('读取模板配置失败:', error);
+    return { categories: [], quickAccess: [], templates: [] };
+  }
+});
+
+// 获取用户自定义模板
+ipcMain.handle('get-custom-templates', () => {
+  return store.getCustomTemplates();
+});
+
+// 添加自定义模板
+ipcMain.handle('add-custom-template', (event, { template }) => {
+  return store.addCustomTemplate(template);
+});
+
+// 更新自定义模板
+ipcMain.handle('update-custom-template', (event, { id, updates }) => {
+  return store.updateCustomTemplate(id, updates);
+});
+
+// 删除自定义模板
+ipcMain.handle('delete-custom-template', (event, { id }) => {
+  store.deleteCustomTemplate(id);
+  return { success: true };
+});
+
+// 获取快捷访问模板列表
+ipcMain.handle('get-quick-access-templates', () => {
+  return store.getQuickAccessTemplates();
+});
+
+// 设置快捷访问模板列表
+ipcMain.handle('set-quick-access-templates', (event, { templateIds }) => {
+  store.setQuickAccessTemplates(templateIds);
   return { success: true };
 });
 
@@ -709,6 +955,15 @@ app.whenReady().then(async () => {
   // Menu.setApplicationMenu(null);
   
   createPetWindow();
+
+  // 自动打开对话窗口（如果已启用）
+  const autoOpenChat = store.get('autoOpenChat', false);
+  if (autoOpenChat) {
+    console.log('💬 自动打开对话窗口...');
+    setTimeout(() => {
+      createChatWindow();
+    }, 500); // 延迟500ms，确保宠物窗口先加载完成
+  }
 
   // 自动启动中转站（如果已启用）
   const proxyConfig = store.getProxyConfig();

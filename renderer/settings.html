@@ -166,17 +166,65 @@
               </div>
               <input type="number" id="proxy-port" class="setting-input" value="3001" min="1024" max="65535">
             </div>
-            
-            <div id="proxy-status" class="proxy-status">
-              <span class="status-dot"></span>
-              <span class="status-text">未启动</span>
+          </div>
+          
+          <div class="settings-section">
+            <!-- 状态面板 -->
+            <div id="proxy-status-panel" class="proxy-status-panel">
+              <div class="status-header">
+                <div class="status-main">
+                  <span class="status-dot"></span>
+                  <span class="status-text">未启动</span>
+                </div>
+                <div class="status-actions">
+                  <button id="test-connection-btn" class="status-action-btn" title="测试连接">🔍 测试</button>
+                  <button id="refresh-status-btn" class="status-action-btn" title="刷新状态">🔄 刷新</button>
+                </div>
+              </div>
+              
+              <!-- 详细状态（运行时显示） -->
+              <div id="proxy-status-details" class="status-details hidden">
+                <div class="status-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">运行时间</span>
+                    <span class="stat-value" id="stat-uptime">--</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">总请求</span>
+                    <span class="stat-value" id="stat-requests">0</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">成功率</span>
+                    <span class="stat-value" id="stat-success-rate">--</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">可用 Key</span>
+                    <span class="stat-value" id="stat-available-keys">0/0</span>
+                  </div>
+                </div>
+                
+                <!-- 健康度指示 -->
+                <div class="health-indicator" id="health-indicator">
+                  <span class="health-icon">🟢</span>
+                  <span class="health-text">服务健康</span>
+                </div>
+                
+                <!-- 下次恢复倒计时 -->
+                <div id="next-recovery" class="next-recovery hidden">
+                  <span class="recovery-icon">⏳</span>
+                  <span class="recovery-text">下一个 Key 将在 <strong id="recovery-countdown">--</strong> 后恢复</span>
+                </div>
+              </div>
             </div>
           </div>
           
           <!-- Gemini Keys 列表 -->
           <div class="settings-section">
-            <h3>🔶 Gemini API Keys</h3>
-            <p class="section-desc">所有可用的 Gemini Key（来自 API 配置 + 手动添加）</p>
+            <div class="section-header">
+              <h3>🔶 Gemini API Keys</h3>
+              <button id="reset-all-keys-btn" class="secondary-btn small" title="重置所有冷却中的 Key">🔄 重置全部</button>
+            </div>
+            <p class="section-desc">所有可用的 Gemini Key（来自 API 配置 + 手动添加），点击 Key 可查看详情</p>
             <div id="all-gemini-keys-list" class="keys-list"></div>
             
             <h4 style="margin-top: 20px; color: #FF9800;">➕ 添加额外的 Key</h4>
@@ -199,19 +247,15 @@
             
             <div class="info-box">
               <h4>📍 其他软件接入</h4>
-              <code id="proxy-url">http://localhost:3001/v1</code>
+              <code id="proxy-url">http://127.0.0.1:3001/v1</code>
               <button class="copy-btn" data-copy="proxy-url">📋 复制</button>
               <p style="margin-top: 8px; font-size: 12px; color: #999;">API Key 随便填，模型可填 gpt-4o、gpt-3.5-turbo 等</p>
             </div>
             
             <div class="info-box">
-              <h4>📋 模型映射</h4>
-              <table class="model-table">
-                <tr><th>您填的模型名</th><th>实际调用</th></tr>
-                <tr><td>gpt-3.5-turbo</td><td>Gemini 1.5 Flash</td></tr>
-                <tr><td>gpt-4</td><td>Gemini 1.5 Pro</td></tr>
-                <tr><td>gpt-4o</td><td>Gemini 2.0 Flash</td></tr>
-              </table>
+              <h4>🤖 支持的模型</h4>
+              <p style="margin: 8px 0; color: #E4E4E7;">默认使用 <strong style="color: #4CAF50;">Gemini 2.5 Flash</strong>（免费）</p>
+              <p style="font-size: 12px; color: #999;">模型名随便填，都会调用免费的 Gemini 模型</p>
             </div>
             
             <div class="info-box">
@@ -281,6 +325,56 @@
               <div class="path-input">
                 <input type="text" id="markdown-path" value="" placeholder="点击选择保存路径" readonly>
                 <button class="secondary-btn" id="change-path-btn">选择</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 网络代理设置 -->
+          <div class="settings-section">
+            <h3>🌐 网络代理</h3>
+            <p class="section-desc">如果需要代理才能访问 Google、OpenAI 等服务，请在此配置</p>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <label>启用网络代理</label>
+                <p class="setting-desc">所有 API 请求将通过代理服务器</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="network-proxy-enabled">
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div id="proxy-config-details" class="proxy-config-details">
+              <div class="setting-item inline">
+                <div class="setting-info">
+                  <label>代理地址</label>
+                </div>
+                <input type="text" id="proxy-host" class="setting-input" value="127.0.0.1" placeholder="127.0.0.1">
+              </div>
+              
+              <div class="setting-item inline">
+                <div class="setting-info">
+                  <label>代理端口</label>
+                </div>
+                <input type="number" id="proxy-port-network" class="setting-input" value="7890" min="1" max="65535" placeholder="7890">
+              </div>
+              
+              <div class="proxy-actions">
+                <button id="test-network-proxy-btn" class="secondary-btn small">🔍 测试代理</button>
+                <button id="save-network-proxy-btn" class="primary-btn small">💾 保存</button>
+              </div>
+              
+              <div id="proxy-test-result" class="proxy-test-result hidden"></div>
+              
+              <div class="proxy-hint">
+                <p>💡 <strong>常用代理端口：</strong></p>
+                <ul>
+                  <li>Clash: <code>7890</code></li>
+                  <li>V2rayN: <code>10808</code> 或 <code>10809</code></li>
+                  <li>Shadowsocks: <code>1080</code></li>
+                </ul>
+                <p class="success">✅ 配置<strong>立即生效</strong>，无需重启应用</p>
               </div>
             </div>
           </div>
@@ -385,7 +479,7 @@
             <div class="about-logo">
               <img src="../assets/shiba.jpg" alt="Yuns" class="about-avatar">
               <h2>Yuns桌面助手</h2>
-              <p class="version">版本 2.0.0</p>
+              <p class="version">版本 2.1.0</p>
             </div>
             
             <div class="about-info">
@@ -395,7 +489,7 @@
               </div>
               <div class="info-item">
                 <span class="info-label">联系方式：</span>
-                <span class="info-value">2644961476@qq.com</span>
+                <span class="info-value">qiyunsheng919@gmail.com</span>
               </div>
               <div class="info-item">
                 <span class="info-label">描述：</span>
@@ -445,12 +539,24 @@
 
         <div class="form-group">
           <label>提供商类型 *</label>
-          <select id="provider-type" required>
+          <select id="provider-type" class="provider-select" required>
             <option value="">请选择...</option>
-            <option value="deepseek">🔷 DeepSeek</option>
-            <option value="gemini">🔶 Gemini</option>
-            <option value="openai">🤖 OpenAI兼容</option>
-            <option value="custom">⚙️ 自定义</option>
+            <optgroup label="国际服务">
+              <option value="deepseek" data-icon="deepseek">DeepSeek</option>
+              <option value="gemini" data-icon="gemini">Google Gemini</option>
+              <option value="openai" data-icon="openai">OpenAI</option>
+              <option value="claude" data-icon="claude">Anthropic Claude</option>
+              <option value="groq" data-icon="groq">Groq (免费高速)</option>
+            </optgroup>
+            <optgroup label="国内服务">
+              <option value="zhipu" data-icon="zhipu">智谱 GLM</option>
+              <option value="moonshot" data-icon="moonshot">月之暗面 Kimi</option>
+              <option value="yi" data-icon="yi">零一万物 Yi</option>
+              <option value="siliconflow" data-icon="siliconflow">硅基流动</option>
+            </optgroup>
+            <optgroup label="其他">
+              <option value="custom" data-icon="custom">自定义 API</option>
+            </optgroup>
           </select>
         </div>
 
@@ -472,6 +578,11 @@
           <select id="model-select" required>
             <option value="">请先选择提供商类型</option>
           </select>
+          <!-- 自定义模型输入（仅在选择自定义 API 时显示） -->
+          <div id="custom-model-group" class="custom-model-group hidden">
+            <input type="text" id="custom-model-input" placeholder="输入模型 ID，如 gpt-4o、claude-3-5-sonnet">
+            <p class="form-hint">💡 <strong>常用模型：</strong>gpt-4o, gpt-4o-mini, claude-3-5-sonnet, deepseek-chat, qwen-turbo</p>
+          </div>
           <div class="model-info" id="model-info"></div>
         </div>
 

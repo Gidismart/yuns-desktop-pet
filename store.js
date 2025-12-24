@@ -246,4 +246,86 @@ store.setAutoSyncApiConfigs = function(enabled) {
   this.set('proxyConfig', config);
 };
 
+// ========== 网络代理配置方法 ==========
+
+store.getNetworkProxy = function() {
+  return this.get('networkProxy', {
+    enabled: false,
+    host: '127.0.0.1',
+    port: 7890
+  });
+};
+
+store.setNetworkProxy = function(proxyConfig) {
+  this.set('networkProxy', {
+    enabled: proxyConfig.enabled || false,
+    host: proxyConfig.host || '127.0.0.1',
+    port: proxyConfig.port || 7890
+  });
+};
+
+store.setNetworkProxyEnabled = function(enabled) {
+  const config = this.getNetworkProxy();
+  config.enabled = enabled;
+  this.set('networkProxy', config);
+};
+
+store.getProxyUrl = function() {
+  const config = this.getNetworkProxy();
+  if (config.enabled) {
+    return `http://${config.host}:${config.port}`;
+  }
+  return null;
+};
+
+// ========== 提示词模板管理方法 ==========
+
+// 获取用户自定义模板
+store.getCustomTemplates = function() {
+  return this.get('customTemplates', []);
+};
+
+// 添加自定义模板
+store.addCustomTemplate = function(template) {
+  const templates = this.getCustomTemplates();
+  const newTemplate = {
+    id: 'custom-' + generateId(),
+    isBuiltin: false,
+    category: '自定义',
+    ...template
+  };
+  templates.push(newTemplate);
+  this.set('customTemplates', templates);
+  return newTemplate;
+};
+
+// 更新自定义模板
+store.updateCustomTemplate = function(id, updates) {
+  const templates = this.getCustomTemplates();
+  const index = templates.findIndex(t => t.id === id);
+  if (index !== -1) {
+    templates[index] = { ...templates[index], ...updates };
+    this.set('customTemplates', templates);
+    return templates[index];
+  }
+  return null;
+};
+
+// 删除自定义模板
+store.deleteCustomTemplate = function(id) {
+  const templates = this.getCustomTemplates();
+  const filtered = templates.filter(t => t.id !== id);
+  this.set('customTemplates', filtered);
+};
+
+// 获取快捷访问模板列表
+store.getQuickAccessTemplates = function() {
+  return this.get('quickAccessTemplates', null); // null 表示使用默认配置
+};
+
+// 设置快捷访问模板列表
+store.setQuickAccessTemplates = function(templateIds) {
+  this.set('quickAccessTemplates', templateIds);
+};
+
 module.exports = store;

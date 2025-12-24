@@ -17,6 +17,10 @@ const editConfirmBtn = document.getElementById('edit-confirm');
 const editCancelBtn = document.getElementById('edit-cancel');
 const editModalClose = document.getElementById('edit-modal-close');
 
+// 模板相关
+const templateBar = document.getElementById('template-bar');
+const quickTemplates = document.getElementById('quick-templates');
+
 // 友好消息模块已通过 <script> 标签加载为全局变量
 // window.FriendlyMessages, window.getFriendlyMessage, window.formatApiError, window.generateVisionSuggestions
 
@@ -31,6 +35,10 @@ let mcpEnabled = false;
 let isGenerating = false;
 let stopGeneration = false;
 let editingMessageIndex = -1; // 正在编辑的消息索引
+
+// 模板数据
+let builtinTemplatesConfig = null;
+let allTemplates = [];
 
 // 智能滚动控制 - 用户手动滚动时不自动滚动
 let userScrolled = false;
@@ -67,6 +75,10 @@ async function initializeApp() {
   
   // 绑定编辑模态框事件
   bindEditModalEvents();
+  
+  // 初始化快捷模板
+  await initializeTemplates();
+  
 }
 
 // 加载主题
@@ -914,6 +926,68 @@ function autoResizeTextarea() {
 }
 
 userInput.addEventListener('input', autoResizeTextarea);
+
+// ========== 快捷模板功能 ==========
+
+// 初始化模板
+async function initializeTemplates() {
+  try {
+    // 加载预设模板
+    builtinTemplatesConfig = await window.electronAPI.getBuiltinTemplates();
+    allTemplates = builtinTemplatesConfig?.templates || [];
+    
+    // 渲染快捷模板栏
+    renderQuickTemplates();
+  } catch (error) {
+    console.error('初始化模板失败:', error);
+  }
+}
+
+// 渲染快捷模板栏
+function renderQuickTemplates() {
+  if (!quickTemplates) return;
+  
+  quickTemplates.innerHTML = '';
+  
+  // 获取快捷访问的模板 ID
+  const quickAccessIds = builtinTemplatesConfig?.quickAccess || ['summarize', 'translate', 'polish', 'explain'];
+  
+  // 找到对应的模板并渲染
+  quickAccessIds.forEach(id => {
+    const template = allTemplates.find(t => t.id === id);
+    if (template) {
+      const btn = document.createElement('button');
+      btn.className = 'template-quick-btn';
+      btn.dataset.templateId = template.id;
+      btn.innerHTML = `
+        <span class="template-icon">${template.icon}</span>
+        <span>${template.name}</span>
+      `;
+      btn.addEventListener('click', () => applyTemplate(template));
+      quickTemplates.appendChild(btn);
+    }
+  });
+}
+
+// 应用模板
+function applyTemplate(template) {
+  const currentText = userInput.value.trim();
+  let promptText = template.prompt;
+  
+  // 替换占位符
+  if (promptText.includes('{{text}}')) {
+    promptText = promptText.replace(/\{\{text\}\}/g, currentText || '');
+  } else if (currentText) {
+    // 如果模板没有占位符但输入框有内容，追加到末尾
+    promptText = promptText + '\n\n' + currentText;
+  }
+  
+  userInput.value = promptText;
+  autoResizeTextarea();
+  userInput.focus();
+  
+  showStatus(`✨ 已应用模板「${template.name}」`, 'success');
+}
 
 // 初始化
 userInput.focus();
